@@ -1,0 +1,864 @@
+<title>Go Dojo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap">
+<style>
+/* Layout: one narrow phone column in the Coffea Arabica house style — flat paper and ink, serif headings,
+   1.5px ink outlines, pill buttons, no gradients, shadows or blur. Single light theme by choice. */
+:root {
+  --paper: #f6f1e8; --card: #fffdf8; --line: #e4dccd; --ink: #1f2427; --soft: #6c6a64; --faint: #a7a197;
+  --accent: #e2573f; --gold: #efb43f; --green: #4f8a5b; --green-soft: #e3eedf; --gold-soft: #fbeccb; --red-soft: #f9e0d9;
+  --board: #e4c792; --board-dim: #d4b47c; --grid: #1f2427; --stone-b: #262c30; --stone-b-side: #0e1214; --stone-w: #fffdf8; --stone-w-side: #cfc5b2;
+  --serif: "DM Serif Display", Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--paper); color: var(--ink); font: 15px/1.45 var(--sans); -webkit-tap-highlight-color: transparent; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--paper); }
+.app { max-width: 520px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 calc(88px + env(safe-area-inset-bottom, 0px)); }
+header.top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: 60px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+header.top h1 { grid-column: 2; }
+header.top .caps { grid-column: 3; justify-self: end; }
+h1 { font: 30px/1 var(--serif); letter-spacing: -0.01em; margin: 0; white-space: nowrap; }
+h1 small { display: none; }
+h2 { font: 26px/1.1 var(--serif); margin: 0; text-wrap: balance; }
+h3 { font: 20px/1.15 var(--serif); margin: 0; font-weight: 400; }
+p { margin: 0; }
+.view { display: flex; flex-direction: column; gap: 12px; }
+.muted { color: var(--soft); }
+.label { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--soft); font-weight: 700; }
+
+/* controls */
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.seg { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1.5px solid var(--ink); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; border-left: 1.5px solid var(--ink); background: none; color: var(--ink); font: 600 14px var(--sans); padding: 8px 12px; cursor: pointer; min-height: 38px; }
+.seg button:first-child { border-left: 0; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.btn { border: 1.5px solid var(--ink); background: none; color: var(--ink); font: 700 15px var(--sans); padding: 10px 14px; border-radius: 999px; cursor: pointer; min-height: 44px; }
+.btn.primary { background: var(--ink); color: var(--paper); }
+.btn.toggle { font-size: 13px; min-height: 36px; padding: 6px 14px; border-color: var(--line); color: var(--soft); }
+.btn.toggle[aria-pressed="true"] { border-color: var(--ink); color: var(--paper); background: var(--ink); }
+.btn:disabled { opacity: 0.3; cursor: default; }
+.btn:focus-visible, .seg button:focus-visible, .tab:focus-visible, .card:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.btns .btn { padding-inline: 4px; }
+select { font: 600 14px var(--sans); color: var(--ink); background: var(--card); border: 1.5px solid var(--ink); border-radius: 8px; padding: 7px 8px; min-height: 38px; }
+.settings { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 12px; align-items: center; background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 14px; }
+.settings .label { margin: 0; }
+details.setup summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; font: 20px var(--serif); padding: 2px 0; }
+details.setup summary::-webkit-details-marker { display: none; }
+details.setup summary .muted { font: 13px var(--sans); }
+details.setup[open] summary { margin-bottom: 10px; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.check input { width: 18px; height: 18px; accent-color: var(--ink); }
+
+/* board */
+.boardwrap { position: relative; width: 100%; aspect-ratio: 1 / 1; max-width: 100%; }
+.boardwrap canvas { width: 100%; height: 100%; display: block; border-radius: 6px; touch-action: manipulation; cursor: pointer; }
+.status { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 38px; }
+.status .who { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 8px; background: var(--ink); color: var(--paper); font-weight: 600; font-size: 14px; }
+.dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; flex: none; }
+.dot.b { background: var(--stone-b); box-shadow: 0 0 0 1.5px var(--paper); }
+.dot.w { background: var(--stone-w); }
+.caps { font-size: 12px; color: var(--soft); font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.meter { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--ink); width: 50%; transition: width .4s ease; }
+.coach { border-radius: 12px; padding: 12px 14px; font-size: 14px; background: var(--card); border: 1.5px solid var(--line); min-height: 50px; display: flex; gap: 10px; align-items: flex-start; }
+.coach .tag { flex: none; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; margin-top: 1px; background: var(--ink); color: var(--paper); }
+.coach.good { background: var(--green-soft); border-color: var(--green); } .coach.good .tag { background: var(--green); }
+.coach.warn { background: var(--gold-soft); border-color: var(--gold); } .coach.warn .tag { background: var(--gold); color: var(--ink); }
+.coach.bad { background: var(--red-soft); border-color: var(--accent); } .coach.bad .tag { background: var(--accent); }
+.coach p { min-width: 0; }
+
+/* drills */
+.cat { display: flex; flex-direction: column; gap: 8px; }
+.cat header { display: flex; justify-content: space-between; align-items: baseline; }
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.card { text-align: left; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); border-radius: 12px; padding: 10px; cursor: pointer; display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: center; font: inherit; }
+.card canvas { width: 54px; height: 54px; border-radius: 4px; }
+.card .t { font-weight: 700; font-size: 14px; line-height: 1.25; }
+.card .s { font-size: 12px; color: var(--soft); display: flex; gap: 6px; align-items: center; }
+.card.done { border-color: var(--green); }
+.card.done .s::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--green); display: inline-block; }
+.chip { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; border: 1.5px solid var(--ink); color: var(--ink); }
+.progress { font-size: 12px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.drillhead { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.lessonbox { background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+
+/* learn */
+.lesson { background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.lesson p, .lesson li { max-width: 65ch; }
+.lesson ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.lesson .proverb { font: 18px/1.25 var(--serif); color: var(--accent); }
+.lesson .fig { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 12px; align-items: center; }
+.lesson .fig canvas { width: 140px; height: 140px; border-radius: 5px; }
+@media (max-width: 420px) { .lesson .fig { grid-template-columns: 1fr; } .cards { grid-template-columns: 1fr; } }
+
+/* tab bar */
+nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--paper); border-top: 1px solid var(--line); padding: 8px max(16px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+nav.tabs .inner { max-width: 520px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.tab { border: 0; background: transparent; color: var(--soft); font: 600 12px var(--sans); padding: 6px 4px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 52px; }
+.tab svg { width: 22px; height: 22px; }
+.tab[aria-selected="true"] { color: var(--paper); background: var(--ink); }
+.tab[aria-selected="true"] svg circle[fill="var(--paper)"] { fill: var(--ink); }
+.result { background: var(--card); border: 1.5px solid var(--ink); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+.result .big { font: 26px/1.1 var(--serif); }
+.spin { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(246,241,232,.35); border-top-color: var(--paper); border-radius: 50%; animation: sp .8s linear infinite; }
+@keyframes sp { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } .meter i { transition: none; } }
+</style>
+
+<div class="app">
+  <header class="top"><h1>Go Dojo<small id="subtitle">Play</small></h1><span class="caps" id="engineNote"></span></header>
+
+  <!-- PLAY -->
+  <section class="view" id="v-play" data-view="play">
+    <details class="setup" id="setup">
+      <summary><span>Game setup</span><span class="muted" id="setupSummary"></span></summary>
+      <div class="settings">
+        <span class="label">Board</span>
+        <div class="seg" id="optSize"><button data-v="9">9×9</button><button data-v="13">13×13</button><button data-v="19">19×19</button></div>
+        <span class="label">Computer</span>
+        <select id="optLevel"><option value="0">Beginner</option><option value="1">Casual</option><option value="2">Club</option><option value="3">Strong</option></select>
+        <span class="label">You play</span>
+        <div class="seg" id="optColor"><button data-v="1">Black</button><button data-v="2">White</button></div>
+        <span class="label">Handicap</span>
+        <select id="optHandi"></select>
+        <span class="label">Taps</span>
+        <label class="check"><input type="checkbox" id="optConfirm"> Tap twice to place a stone</label>
+      </div>
+    </details>
+    <div class="status"><span class="who" id="pWho"></span><span class="caps" id="pCaps"></span></div>
+    <div class="boardwrap"><canvas id="pBoard" aria-label="Go board"></canvas></div>
+    <div class="meter" title="Computer's estimate of your winning chances"><i id="pMeter"></i></div>
+    <div class="coach" id="pCoach"><span class="tag">Coach</span><p id="pCoachText">Tap the board to play.</p></div>
+    <div class="btns">
+      <button class="btn" id="pPass">Pass</button>
+      <button class="btn" id="pUndo">Undo</button>
+      <button class="btn" id="pHint">Hint</button>
+      <button class="btn primary" id="pNew">New</button>
+    </div>
+    <div class="row">
+      <button class="btn toggle" id="tLibs" aria-pressed="true">Liberty warnings</button>
+      <button class="btn toggle" id="tTerr" aria-pressed="false">Territory</button>
+      <button class="btn toggle" id="tInspect" aria-pressed="false">Inspect group</button>
+    </div>
+    <div class="result" id="pResult" hidden></div>
+  </section>
+
+  <!-- DRILLS -->
+  <section class="view" id="v-drills" data-view="drills" hidden>
+    <div id="drillList" class="view"></div>
+    <div id="drillPlay" class="view" hidden>
+      <div class="drillhead">
+        <div><span class="chip" id="dChip"></span><h2 id="dTitle" style="margin-top:6px"></h2></div>
+        <button class="btn" id="dBack">All drills</button>
+      </div>
+      <p id="dBrief"></p>
+      <div class="boardwrap"><canvas id="dBoard" aria-label="Drill board"></canvas></div>
+      <div class="coach" id="dCoach"><span class="tag">Black</span><p id="dCoachText"></p></div>
+      <div class="btns">
+        <button class="btn" id="dRetry">Retry</button>
+        <button class="btn" id="dHint">Hint</button>
+        <button class="btn" id="dLesson">Lesson</button>
+        <button class="btn primary" id="dNext">Next</button>
+      </div>
+      <div class="lessonbox" id="dLessonBox" hidden><span class="label">The idea</span><p id="dLessonText"></p></div>
+    </div>
+  </section>
+
+  <!-- ATARI GO -->
+  <section class="view" id="v-atari" data-view="atari" hidden>
+    <div class="lessonbox"><span class="label">Capture Go</span><p>The first player to capture any stone wins. It strips Go down to the fight: blocking, chasing, ladders and nets. Ten quick games here will sharpen your reading faster than one long game.</p></div>
+    <div class="row">
+      <div class="seg" id="aSize"><button data-v="7">7×7</button><button data-v="9">9×9</button></div>
+      <div class="seg" id="aStart"><button data-v="cross">Crosscut start</button><button data-v="empty">Empty</button></div>
+      <select id="aLevel" aria-label="Computer strength"><option value="0">Beginner</option><option value="1">Casual</option><option value="2">Club</option><option value="3">Strong</option></select>
+    </div>
+    <div class="status"><span class="who" id="aWho"></span><span class="caps" id="aScore"></span></div>
+    <div class="boardwrap"><canvas id="aBoard" aria-label="Capture Go board"></canvas></div>
+    <div class="coach" id="aCoach"><span class="tag">Coach</span><p id="aCoachText"></p></div>
+    <div class="btns">
+      <button class="btn" id="aUndo">Undo</button>
+      <button class="btn" id="aHint">Hint</button>
+      <button class="btn toggle" id="aLibs" aria-pressed="true">Liberties</button>
+      <button class="btn primary" id="aNew">New</button>
+    </div>
+  </section>
+
+  <!-- LEARN -->
+  <section class="view" id="v-learn" data-view="learn" hidden></section>
+</div>
+
+<nav class="tabs" aria-label="Sections"><div class="inner" role="tablist">
+  <button class="tab" role="tab" data-tab="play" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/><circle cx="9" cy="9" r="2.4" fill="currentColor"/><circle cx="15" cy="15" r="2.4" fill="var(--paper)"/></svg>Play</button>
+  <button class="tab" role="tab" data-tab="drills" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>Drills</button>
+  <button class="tab" role="tab" data-tab="atari" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3.2" fill="currentColor"/><circle cx="12" cy="5" r="2.6"/><circle cx="12" cy="19" r="2.6"/><circle cx="5" cy="12" r="2.6"/><circle cx="19" cy="12" r="2.6"/></svg>Capture Go</button>
+  <button class="tab" role="tab" data-tab="learn" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 5.5C6.5 4 9.5 4 12 5.5v14C9.5 18 6.5 18 4 19.5z"/><path d="M20 5.5C17.5 4 14.5 4 12 5.5v14c2.5-1.5 5.5-1.5 8 0z"/></svg>Learn</button>
+</div></nav>
+
+<script id="engine-src" type="text/plain">/*ENGINE_SRC*/</script>
+<script>
+(function () {
+'use strict';
+const SRC = document.getElementById('engine-src').textContent;
+(new Function(SRC))();
+const E = window.GoEngine, PROBS = window.GoProblems;
+const { BLACK, WHITE, EMPTY } = E;
+const $ = (s) => document.querySelector(s);
+const LETTERS = 'ABCDEFGHJKLMNOPQRST';
+const coord = (p, n) => p < 0 ? 'pass' : LETTERS[p % n] + (n - Math.floor(p / n));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('godojo:' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('godojo:' + k, JSON.stringify(v)); } catch (e) {} },
+};
+
+/* ---------------- worker ---------------- */
+let worker = null, wid = 0;
+const pending = new Map();
+function makeWorker() {
+  if (worker) worker.terminate();
+  for (const p of pending.values()) p.reject(new Error('cancelled'));
+  pending.clear();
+  try {
+    worker = new Worker(URL.createObjectURL(new Blob([SRC], { type: 'text/javascript' })));
+    worker.onmessage = (e) => { const p = pending.get(e.data.id); if (!p) return; pending.delete(e.data.id); e.data.error ? p.reject(new Error(e.data.error)) : p.resolve(e.data.result); };
+    worker.onerror = () => { worker = null; };
+  } catch (e) { worker = null; }
+}
+makeWorker();
+function call(msg) {
+  if (!worker) return new Promise((res, rej) => setTimeout(() => { try { res(E.handle(msg)); } catch (e) { rej(e); } }, 30));
+  return new Promise((resolve, reject) => { const id = ++wid; pending.set(id, { resolve, reject }); worker.postMessage({ ...msg, id }); });
+}
+const LEVELS = [
+  { name: 'Beginner', playouts: 250, ms: 1500, randomness: 6 },
+  { name: 'Casual', playouts: 900, ms: 2500, randomness: 3 },
+  { name: 'Club', playouts: 3000, ms: 4500 },
+  { name: 'Strong', playouts: 12000, ms: 9000 },
+];
+
+/* ---------------- board view ---------------- */
+function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function starPoints(n) {
+  if (n === 9) return [[2, 2], [6, 2], [2, 6], [6, 6], [4, 4]];
+  if (n === 13) return [[3, 3], [9, 3], [3, 9], [9, 9], [6, 6]];
+  if (n === 19) { const a = [3, 9, 15], r = []; for (const x of a) for (const y of a) r.push([x, y]); return r; }
+  if (n === 7) return [[3, 3]];
+  return [];
+}
+class BoardView {
+  constructor(canvas, opts = {}) {
+    this.cv = canvas; this.ctx = canvas.getContext('2d'); this.n = 9; this.coords = opts.coords !== false;
+    this.onTap = null; this.data = null;
+    if (opts.interactive !== false) {
+      let down = null;
+      canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; });
+      canvas.addEventListener('pointerup', (e) => {
+        if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 14) { down = null; return; }
+        down = null;
+        const p = this.hit(e); if (p >= 0 && this.onTap) this.onTap(p);
+      });
+    }
+    this.ro = new ResizeObserver(() => this.draw()); this.ro.observe(canvas);
+  }
+  geom() {
+    const r = this.cv.getBoundingClientRect(), W = r.width || 300, n = this.n;
+    const m = this.coords ? 0.85 : 0.6, cell = W / (n - 1 + 2 * m);
+    return { W, cell, off: cell * m, n };
+  }
+  hit(e) {
+    const r = this.cv.getBoundingClientRect(), g = this.geom();
+    const x = Math.round((e.clientX - r.left - g.off) / g.cell), y = Math.round((e.clientY - r.top - g.off) / g.cell);
+    if (x < 0 || y < 0 || x >= g.n || y >= g.n) return -1;
+    return y * g.n + x;
+  }
+  show(data) { this.data = data; this.n = data.n; this.draw(); }
+  draw() {
+    const d = this.data; if (!d) return;
+    const dpr = window.devicePixelRatio || 1, g = this.geom(), W = g.W, n = g.n, cell = g.cell, off = g.off;
+    if (this.cv.width !== Math.round(W * dpr)) { this.cv.width = Math.round(W * dpr); this.cv.height = Math.round(W * dpr); }
+    const c = this.ctx; c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const P = (i) => [off + (i % n) * cell, off + Math.floor(i / n) * cell];
+    // flat clay board
+    const grid = css('--grid');
+    c.fillStyle = css('--board'); c.fillRect(0, 0, W, W);
+    // region dim
+    if (d.region) {
+      c.fillStyle = css('--board-dim');
+      for (let i = 0; i < n * n; i++) if (!d.region[i]) { const [x, y] = P(i); c.fillRect(x - cell / 2, y - cell / 2, cell + 0.5, cell + 0.5); }
+    }
+    // grid
+    c.strokeStyle = grid; c.globalAlpha = 0.55; c.lineWidth = Math.max(0.8, cell / 34);
+    c.beginPath();
+    for (let i = 0; i < n; i++) { c.moveTo(off, off + i * cell); c.lineTo(off + (n - 1) * cell, off + i * cell); c.moveTo(off + i * cell, off); c.lineTo(off + i * cell, off + (n - 1) * cell); }
+    c.stroke();
+    c.lineWidth = Math.max(1.4, cell / 18); c.strokeRect(off, off, (n - 1) * cell, (n - 1) * cell); c.globalAlpha = 1;
+    c.fillStyle = grid;
+    for (const [x, y] of starPoints(n)) { c.beginPath(); c.arc(off + x * cell, off + y * cell, Math.max(2, cell * 0.1), 0, 7); c.fill(); }
+    if (this.coords) {
+      c.font = `600 ${Math.max(8, Math.min(13, cell * 0.36))}px -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.globalAlpha = 0.45; c.fillStyle = grid;
+      for (let i = 0; i < n; i++) {
+        c.fillText(LETTERS[i], off + i * cell, off * 0.42); c.fillText(LETTERS[i], off + i * cell, W - off * 0.42);
+        c.fillText(String(n - i), off * 0.42, off + i * cell); c.fillText(String(n - i), W - off * 0.42, off + i * cell);
+      }
+      c.globalAlpha = 1;
+    }
+    // territory / ownership
+    if (d.own) {
+      for (let i = 0; i < n * n; i++) {
+        const v = d.own[i], s = d.stones[i];
+        if (Math.abs(v) < 0.3) continue;
+        if (s && ((s === BLACK) === (v > 0))) continue;
+        const [x, y] = P(i), sz = cell * (s ? 0.3 : 0.26 + 0.14 * Math.abs(v));
+        c.globalAlpha = s ? 0.9 : 0.35 + 0.5 * Math.abs(v);
+        c.fillStyle = v > 0 ? css('--stone-b') : css('--stone-w');
+        c.fillRect(x - sz / 2, y - sz / 2, sz, sz);
+        c.globalAlpha = 1;
+      }
+    }
+    if (d.terr) {
+      for (let i = 0; i < n * n; i++) {
+        if (d.stones[i] && !(d.dead && d.dead[i])) continue;
+        const o = d.terr[i]; if (!o) continue;
+        const [x, y] = P(i), sz = cell * 0.34; c.fillStyle = o > 0 ? css('--stone-b') : css('--stone-w');
+        c.fillRect(x - sz / 2, y - sz / 2, sz, sz);
+      }
+    }
+    // stones
+    const R = cell * 0.47;
+    const stone = (i, col, alpha) => {
+      const [x, y] = P(i);
+      c.globalAlpha = alpha;
+      const top = col === BLACK ? css('--stone-b') : css('--stone-w'), side = col === BLACK ? css('--stone-b-side') : css('--stone-w-side');
+      const h = R * 0.13;
+      c.fillStyle = side; c.beginPath(); c.arc(x, y + h * 0.5, R * 0.97, 0, 7); c.fill();
+      c.fillStyle = top; c.beginPath(); c.arc(x, y - h * 0.5, R * 0.97, 0, 7); c.fill();
+      c.globalAlpha = 1;
+    };
+    for (let i = 0; i < n * n; i++) if (d.stones[i]) stone(i, d.stones[i], d.dead && d.dead[i] ? 0.4 : 1);
+    if (d.ghost != null && d.ghost >= 0 && !d.stones[d.ghost]) stone(d.ghost, d.ghostColor || BLACK, 0.5);
+    // liberty warnings
+    if (d.libs) {
+      const seen = new Uint8Array(n * n), bd = d.board;
+      for (let i = 0; i < n * n; i++) {
+        if (!d.stones[i] || seen[i]) continue;
+        const ch = bd.chain(i); for (const s of ch.stones) seen[s] = 1;
+        const L = ch.libs.length; if (L > 2) continue;
+        if (L === 2 && ch.stones.length < 2 && !d.libsAll) continue;
+        c.strokeStyle = L === 1 ? css('--accent') : css('--gold'); c.lineWidth = Math.max(2, cell * 0.09);
+        for (const s of ch.stones) { const [x, y] = P(s); c.beginPath(); c.arc(x, y, R * 0.98, 0, 7); c.stroke(); }
+        if (L === 1) { const [x, y] = P(ch.libs[0]); c.fillStyle = css('--accent'); c.beginPath(); c.arc(x, y, cell * 0.12, 0, 7); c.fill(); }
+      }
+    }
+    // last move
+    if (d.last != null && d.last >= 0 && d.stones[d.last]) {
+      const [x, y] = P(d.last); c.fillStyle = css('--accent');
+      c.beginPath(); c.arc(x, y - R * 0.065, R * 0.26, 0, 7); c.fill();
+    }
+    // marks (hints)
+    if (d.marks) for (const m of d.marks) {
+      const [x, y] = P(m.p);
+      c.fillStyle = css('--ink'); c.beginPath(); c.arc(x, y, R * 0.78, 0, 7); c.fill();
+      c.fillStyle = css('--paper'); c.font = `700 ${Math.max(9, cell * 0.42)}px -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(m.label, x, y + 0.5);
+    }
+  }
+}
+
+/* ---------------- helpers ---------------- */
+function chainsOf(b, color) {
+  const seen = new Uint8Array(b.N), out = [];
+  for (let i = 0; i < b.N; i++) if (b.s[i] === color && !seen[i]) { const ch = b.chain(i); for (const s of ch.stones) seen[s] = 1; out.push(ch); }
+  return out;
+}
+const nameOf = (c) => c === BLACK ? 'Black' : 'White';
+function setCoach(el, kind, tag, text) {
+  el.className = 'coach' + (kind ? ' ' + kind : '');
+  el.querySelector('.tag').textContent = tag; el.querySelector('p').textContent = text;
+}
+function handicapPoints(n, k) {
+  const a = n === 9 ? 2 : 3, b = n - 1 - a, m = (n - 1) / 2;
+  const TR = [b, a], BL = [a, b], BR = [b, b], TL = [a, a], C = [m, m], L = [a, m], R = [b, m], T = [m, a], B = [m, b];
+  const sets = { 2: [TR, BL], 3: [TR, BL, BR], 4: [TR, BL, BR, TL], 5: [TR, BL, BR, TL, C], 6: [TR, BL, BR, TL, L, R], 7: [TR, BL, BR, TL, L, R, C], 8: [TR, BL, BR, TL, L, R, T, B], 9: [TR, BL, BR, TL, L, R, T, B, C] };
+  return (sets[k] || []).map(([x, y]) => y * n + x);
+}
+
+/* ================= PLAY ================= */
+const play = {
+  view: new BoardView($('#pBoard')),
+  size: store.get('size', 9), level: store.get('level', 0), color: store.get('color', BLACK), handi: store.get('handi', 4),
+  confirm: store.get('confirm', null), showLibs: store.get('libs', true), showTerr: false, inspect: false,
+  b: null, toMove: BLACK, passes: 0, hist: [], own: null, win: 0.5, thinking: false, over: false, token: 0,
+  ghost: -1, marks: null, dead: null, terr: null, komi: 7.5, moveNo: 0,
+};
+function playState() {
+  const b = play.b;
+  return { size: play.size, stones: Array.from(b.s), toMove: play.toMove, komi: play.komi, ko: b.ko, last: b.last, last2: b.last2, passes: play.passes, mode: 'score' };
+}
+function renderPlay() {
+  const b = play.b, n = play.size;
+  play.view.show({ n, stones: b.s, board: b, last: b.last, libs: play.showLibs && !play.over, own: play.showTerr && !play.over ? play.own : null,
+    ghost: play.ghost, ghostColor: play.color, marks: play.marks, dead: play.dead, terr: play.over ? play.terr : null });
+  const who = $('#pWho');
+  if (play.over) who.innerHTML = '<span>Game over</span>';
+  else if (play.thinking) who.innerHTML = `<span class="dot ${play.toMove === BLACK ? 'b' : 'w'}"></span><span>Computer is thinking</span><span class="spin" aria-hidden="true"></span>`;
+  else who.innerHTML = `<span class="dot ${play.toMove === BLACK ? 'b' : 'w'}"></span><span>${play.toMove === play.color ? 'Your move' : 'Computer to move'}</span>`;
+  $('#pCaps').textContent = `Captures  B ${b.cap[BLACK]} · W ${b.cap[WHITE]}  ·  komi ${play.komi}`;
+  $('#pMeter').style.width = Math.round(100 * (1 - play.win)) + '%';
+  $('#pUndo').disabled = !play.hist.length;
+  $('#pPass').disabled = play.over || play.thinking || play.toMove !== play.color;
+  $('#pHint').disabled = play.over || play.thinking || play.toMove !== play.color;
+  $('#tLibs').setAttribute('aria-pressed', play.showLibs); $('#tTerr').setAttribute('aria-pressed', play.showTerr); $('#tInspect').setAttribute('aria-pressed', play.inspect);
+  $('#setupSummary').textContent = `${n}×${n} · ${LEVELS[play.level].name} · ${play.handi > 1 ? play.handi + ' stones' : 'even'}`;
+  $('#subtitle').textContent = 'Play';
+}
+function setupControls() {
+  const seg = (id, val, cb) => {
+    const el = $(id), sync = (v) => el.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v == v));
+    sync(val); el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; sync(b.dataset.v); cb(+b.dataset.v); });
+  };
+  seg('#optSize', play.size, (v) => { play.size = v; store.set('size', v); fillHandi(); newGame(); });
+  seg('#optColor', play.color, (v) => { play.color = v; store.set('color', v); newGame(); });
+  $('#optLevel').value = play.level;
+  $('#optLevel').addEventListener('change', (e) => { play.level = +e.target.value; store.set('level', play.level); renderPlay(); });
+  $('#optHandi').addEventListener('change', (e) => { play.handi = +e.target.value; store.set('handi', play.handi); newGame(); });
+  const conf = $('#optConfirm');
+  conf.checked = confirmOn();
+  conf.addEventListener('change', () => { play.confirm = conf.checked; store.set('confirm', conf.checked); });
+  fillHandi();
+}
+function confirmOn() { return play.confirm == null ? play.size >= 13 : play.confirm; }
+function fillHandi() {
+  const max = play.size === 9 ? 5 : 9, sel = $('#optHandi');
+  if (play.handi > max) play.handi = max;
+  sel.innerHTML = '<option value="0">None (even game)</option>' + Array.from({ length: max - 1 }, (_, i) => `<option value="${i + 2}">${i + 2} stones for Black</option>`).join('');
+  sel.value = play.handi < 2 ? 0 : play.handi;
+  $('#optConfirm').checked = confirmOn();
+}
+function newGame() {
+  play.token++; if (play.thinking) makeWorker();
+  const n = play.size; play.b = new E.Board(n);
+  const hp = play.handi >= 2 ? handicapPoints(n, play.handi) : [];
+  for (const p of hp) play.b.set(p, BLACK);
+  play.komi = hp.length ? 0.5 : 7.5;
+  play.toMove = hp.length ? WHITE : BLACK;
+  Object.assign(play, { passes: 0, hist: [], own: null, win: 0.5, thinking: false, over: false, ghost: -1, marks: null, dead: null, terr: null, moveNo: 0 });
+  $('#pResult').hidden = true;
+  const youBlack = play.color === BLACK;
+  setCoach($('#pCoach'), '', 'Coach', hp.length
+    ? `${hp.length} handicap stones for Black. ${youBlack ? 'Use them to attack: you don\'t need to defend every stone.' : 'You give the handicap. Play light and keep your groups connected.'}`
+    : (n === 9 ? 'On 9×9 the center matters. Start near the middle, then build toward the corners.' : 'Corners first, then sides, then the center. Corners need the fewest stones to secure.'));
+  renderPlay();
+  if (play.toMove !== play.color) aiMove();
+}
+function pushHist() { play.hist.push({ s: play.b.clone(), toMove: play.toMove, passes: play.passes, own: play.own, win: play.win, moveNo: play.moveNo }); }
+function chainSafety(ch, color) {
+  if (!play.own) return null;
+  const sign = color === BLACK ? 1 : -1; let t = 0;
+  for (const s of ch.stones) t += play.own[s] * sign;
+  return Math.max(0, Math.min(1, (t / ch.stones.length + 1) / 2));
+}
+function userPlay(p) {
+  if (play.over) { toggleDead(p); return; }
+  if (play.inspect) { inspectAt(p); return; }
+  if (play.thinking || play.toMove !== play.color) return;
+  const b = play.b, me = play.color;
+  if (b.s[p]) return;
+  if (!b.isLegal(p, me)) { setCoach($('#pCoach'), 'warn', 'Illegal', p === b.ko ? 'That retakes a ko immediately. Play a threat somewhere else first, then come back.' : 'That point has no liberties for your stone (suicide).'); return; }
+  if (confirmOn() && play.ghost !== p) { play.ghost = p; renderPlay(); return; }
+  play.ghost = -1; play.marks = null;
+  // coach: was this move slow?
+  let note = null;
+  if (play.own && play.moveNo > 4) {
+    const sign = me === BLACK ? 1 : -1;
+    const ownHere = play.own[p] * sign;
+    let safeNeighbour = null;
+    for (const q of b.nb[p]) if (b.s[q] === me) {
+      const ch = b.chain(q), sf = chainSafety(ch, me);
+      if (sf != null && sf > 0.88 && ch.libs.length >= 3) safeNeighbour = sf;
+    }
+    let threatened = false;
+    for (const q of b.nb[p]) if (b.s[q] && b.libCount(q, 3) <= 2) threatened = true;
+    if (!threatened && ownHere > 0.85) note = ['warn', 'Slow move', 'That point was already yours. Filling your own area gains nothing. Look for the biggest open area, or attack a weak White group.'];
+    else if (!threatened && safeNeighbour != null) note = ['warn', 'Slow move', `That group already looked safe (about ${Math.round(safeNeighbour * 100)}%). Extra eye-making moves cost you a turn. Play elsewhere when your groups are settled.`];
+  }
+  pushHist();
+  b.play(p, me); play.passes = 0; play.moveNo++;
+  play.toMove = 3 - me;
+  if (note) setCoach($('#pCoach'), ...note);
+  else if (b.lastCap) setCoach($('#pCoach'), 'good', 'Capture', `You captured ${b.lastCap} stone${b.lastCap > 1 ? 's' : ''}.`);
+  renderPlay();
+  aiMove(!!note);
+}
+function inspectAt(p) {
+  const b = play.b;
+  if (!b.s[p]) { setCoach($('#pCoach'), '', 'Inspect', 'Tap a stone to see its group. Tap Inspect group again to go back to playing.'); return; }
+  const col = b.s[p], ch = b.chain(p), sf = chainSafety(ch, col);
+  const st = sf == null ? 'Play a few moves first so the computer can judge it.' : sf > 0.8 ? 'Looks safe. You can leave it alone.' : sf > 0.45 ? 'Unsettled. It needs care soon, but not necessarily now.' : 'In danger. Save it, use it as a sacrifice, or let it go and take something bigger.';
+  setCoach($('#pCoach'), sf == null ? '' : sf > 0.8 ? 'good' : sf > 0.45 ? 'warn' : 'bad', 'Inspect',
+    `${nameOf(col)} group: ${ch.stones.length} stone${ch.stones.length > 1 ? 's' : ''}, ${ch.libs.length} liberties${sf == null ? '' : ', about ' + Math.round(sf * 100) + '% safe'}. ${st}`);
+  play.marks = null; play.view.show({ ...play.view.data, marks: ch.libs.slice(0, 40).map(l => ({ p: l, label: '' })) });
+}
+async function aiMove(keepNote) {
+  const tok = play.token, lv = LEVELS[play.level];
+  play.thinking = true; renderPlay();
+  let r;
+  try { r = await call({ cmd: 'think', state: playState(), opts: { playouts: lv.playouts, ms: lv.ms * (play.size === 19 ? 1.5 : 1), randomness: lv.randomness } }); }
+  catch (e) { if (tok === play.token) { play.thinking = false; renderPlay(); } return; }
+  if (tok !== play.token) return;
+  play.thinking = false;
+  const b = play.b, ai = 3 - play.color;
+  pushHist();
+  if (r.move < 0 || !b.isLegal(r.move, ai)) {
+    b.play(-1, ai); play.passes++;
+    play.toMove = play.color; play.own = r.ownership; play.win = r.win;
+    if (play.passes >= 2) { endGame(); return; }
+    setCoach($('#pCoach'), '', 'Pass', 'The computer passed. If nothing is left to fight over, pass too to count the score.');
+    renderPlay(); return;
+  }
+  b.play(r.move, ai); play.passes = 0; play.moveNo++;
+  play.toMove = play.color; play.own = r.ownership; play.win = r.win;
+  if (!keepNote) coachAfterAI(r.move);
+  renderPlay();
+}
+function coachAfterAI(mv) {
+  const b = play.b, me = play.color, n = play.size, el = $('#pCoach');
+  const mine = chainsOf(b, me), theirs = chainsOf(b, 3 - me);
+  const atari = mine.filter(c => c.libs.length === 1).sort((a, c) => c.stones.length - a.stones.length);
+  const caps = theirs.filter(c => c.libs.length === 1).sort((a, c) => c.stones.length - a.stones.length);
+  if (b.lastCap) { setCoach(el, 'bad', 'Captured', `The computer captured ${b.lastCap} of your stones at ${coord(mv, n)}.`); return; }
+  if (caps.length) { setCoach(el, 'good', 'Chance', `${nameOf(3 - me)} stones at ${coord(caps[0].stones[0], n)} are in atari. Can you capture them, and is it worth it?`); return; }
+  if (atari.length) { setCoach(el, 'bad', 'Atari', `Your stones at ${coord(atari[0].stones[0], n)} are in atari. Save them only if they matter; small stones can be given up.`); return; }
+  const short = mine.filter(c => c.libs.length === 2 && c.stones.length >= 3);
+  if (short.length) { setCoach(el, 'warn', 'Careful', `Your group at ${coord(short[0].stones[0], n)} is down to 2 liberties. Watch for a ladder or a net.`); return; }
+  setCoach(el, '', 'Coach', `Computer played ${coord(mv, n)}. ${tipFor(b, mv)}`);
+}
+function tipFor(b, mv) {
+  let touch = 0; for (const q of b.nb[mv]) if (b.s[q] === play.color) touch++;
+  if (touch) return 'It is touching your stones. Contact fights are fast: count liberties before you hane or extend.';
+  const tips = ['Ask: which group is weakest on the board, yours or theirs? Play there.', 'If every group is settled, take the biggest empty area.', 'Moves that threaten something keep the initiative (sente).', 'Attack from a distance. Touching a weak stone makes it stronger.'];
+  return tips[play.moveNo % tips.length];
+}
+async function endGame() {
+  play.over = true; play.thinking = true; renderPlay();
+  setCoach($('#pCoach'), '', 'Scoring', 'Both sides passed. Estimating which stones are dead.');
+  const tok = play.token;
+  let own;
+  try { own = await call({ cmd: 'own', state: playState(), opts: { playouts: play.size === 19 ? 250 : 500 } }); } catch (e) { return; }
+  if (tok !== play.token) return;
+  play.thinking = false;
+  const b = play.b, dead = new Uint8Array(b.N);
+  for (const col of [BLACK, WHITE]) for (const ch of chainsOf(b, col)) {
+    let t = 0; for (const s of ch.stones) t += own[s];
+    const avg = t / ch.stones.length * (col === BLACK ? 1 : -1);
+    if (avg < -0.35) for (const s of ch.stones) dead[s] = 1;
+  }
+  play.dead = dead; showScore();
+}
+function showScore() {
+  const b = play.b, t = E.territory(b, play.dead);
+  play.terr = t.owner;
+  const white = t.white + play.komi, black = t.black, diff = black - white;
+  const youWin = (diff > 0) === (play.color === BLACK);
+  const res = $('#pResult'); res.hidden = false;
+  res.innerHTML = `<span class="label">Final count (area scoring)</span><span class="big">${youWin ? 'You win' : 'Computer wins'} by ${Math.abs(diff)}</span>
+    <span class="caps">Black ${black} · White ${t.white} + ${play.komi} komi = ${white}</span>
+    <p class="muted">Faded stones are counted as dead. Tap a group to change that if the estimate is wrong.${youWin && play.handi > 0 ? ' Won comfortably? Try one less handicap stone.' : ''}</p>`;
+  setCoach($('#pCoach'), youWin ? 'good' : '', 'Result', youWin ? 'Nice game. Win three in a row, then drop a handicap stone.' : 'Turn on Territory next game: it shows where the computer thinks the points are going while you play.');
+  renderPlay();
+}
+function toggleDead(p) {
+  if (!play.dead || !play.b.s[p] || play.thinking) return;
+  const ch = play.b.chain(p), v = play.dead[p] ? 0 : 1;
+  for (const s of ch.stones) play.dead[s] = v;
+  showScore();
+}
+$('#pPass').onclick = () => {
+  if (play.thinking || play.over || play.toMove !== play.color) return;
+  pushHist(); play.b.play(-1, play.color); play.passes++; play.toMove = 3 - play.color; play.ghost = -1;
+  if (play.passes >= 2) { endGame(); return; }
+  setCoach($('#pCoach'), '', 'Pass', 'You passed. Passing is right only when every border is closed and no group is in danger.');
+  renderPlay(); aiMove(true);
+};
+$('#pUndo').onclick = () => {
+  if (!play.hist.length) return;
+  if (play.thinking) { play.token++; makeWorker(); play.thinking = false; }
+  let h;
+  do { h = play.hist.pop(); } while (play.hist.length && h.toMove !== play.color);
+  if (h.toMove !== play.color) { newGame(); return; }
+  play.b = h.s; play.toMove = h.toMove; play.passes = h.passes; play.own = h.own; play.win = h.win; play.moveNo = h.moveNo;
+  play.over = false; play.dead = null; play.terr = null; play.ghost = -1; play.marks = null; $('#pResult').hidden = true;
+  setCoach($('#pCoach'), '', 'Undo', 'Took back your last move. Try a different idea.');
+  renderPlay();
+};
+$('#pHint').onclick = async () => {
+  if (play.thinking || play.over || play.toMove !== play.color) return;
+  const tok = play.token; play.thinking = true; renderPlay();
+  setCoach($('#pCoach'), '', 'Hint', 'Reading the position.');
+  let r; try { r = await call({ cmd: 'think', state: playState(), opts: { playouts: 3000, ms: 4000 } }); } catch (e) { return; }
+  if (tok !== play.token) return;
+  play.thinking = false; play.own = r.ownership;
+  const top = r.top.filter(t => t.move >= 0).slice(0, 3);
+  play.marks = top.map((t, i) => ({ p: t.move, label: String(i + 1) }));
+  setCoach($('#pCoach'), '', 'Hint', top.length ? `Candidates, best first: ${top.map(t => coord(t.move, play.size)).join(', ')}. Before playing, ask what each one threatens.` : 'Passing is fine here.');
+  renderPlay();
+};
+$('#pNew').onclick = () => newGame();
+$('#tLibs').onclick = () => { play.showLibs = !play.showLibs; store.set('libs', play.showLibs); renderPlay(); };
+$('#tTerr').onclick = () => { play.showTerr = !play.showTerr; renderPlay(); if (play.showTerr && !play.own) setCoach($('#pCoach'), '', 'Territory', 'The map appears after the computer\'s next move.'); };
+$('#tInspect').onclick = () => { play.inspect = !play.inspect; play.marks = null; renderPlay(); setCoach($('#pCoach'), '', 'Inspect', play.inspect ? 'Tap any stone to see how safe its group is.' : 'Back to playing.'); };
+play.view.onTap = userPlay;
+
+/* ================= DRILLS ================= */
+const drill = { view: new BoardView($('#dBoard')), i: -1, P: null, b: null, ok: 0, state: 'play', busy: false, marks: null, done: new Set(store.get('done', [])), showLesson: false };
+const GOALS = { capture: 'Capture', escape: 'Escape', kill: 'Kill', live: 'Live' };
+const CATS = [
+  ['Trap', 'Trapping and capturing', 'Ladders, nets, snapbacks and races. Capture the marked White stones.'],
+  ['Escape', 'Escaping', 'Save your stones without running into a trap.'],
+  ['Kill', 'Killing', 'Take away White\'s eyes. Usually one vital point decides it.'],
+  ['Live', 'Living', 'Make your group safe with the fewest moves.'],
+];
+function probBoard(pr) {
+  const P = E.parseProblem(pr), b = new E.Board(P.size);
+  for (let i = 0; i < b.N; i++) if (P.stones[i]) b.set(i, P.stones[i]);
+  return { P, b };
+}
+function renderDrillList() {
+  const L = $('#drillList'); L.innerHTML = '';
+  const total = PROBS.length, done = PROBS.filter(p => drill.done.has(p.id)).length;
+  const head = document.createElement('div');
+  head.innerHTML = `<h2>Drills</h2><p class="muted" style="margin-top:4px">Every answer is checked by reading the position out, so any move that truly works counts. <span class="progress">${done}/${total} solved</span></p>`;
+  L.appendChild(head);
+  for (const [cat, title, sub] of CATS) {
+    const sec = document.createElement('div'); sec.className = 'cat';
+    sec.innerHTML = `<header><h3>${title}</h3></header><p class="muted" style="font-size:13px">${sub}</p><div class="cards"></div>`;
+    const grid = sec.querySelector('.cards');
+    PROBS.forEach((pr, i) => {
+      if (pr.cat !== cat) return;
+      const card = document.createElement('button'); card.className = 'card' + (drill.done.has(pr.id) ? ' done' : '');
+      card.innerHTML = `<canvas></canvas><span><span class="t">${pr.title}</span><br><span class="s">${GOALS[pr.goal]} · ${pr.rows.length}×${pr.rows.length}</span></span>`;
+      card.onclick = () => openDrill(i);
+      grid.appendChild(card);
+      const { P, b } = probBoard(pr);
+      requestAnimationFrame(() => new BoardView(card.querySelector('canvas'), { interactive: false, coords: false }).show({ n: P.size, stones: b.s, region: P.region }));
+    });
+    L.appendChild(sec);
+  }
+}
+function openDrill(i) {
+  drill.i = i; const pr = PROBS[i], { P, b } = probBoard(pr);
+  Object.assign(drill, { P, b, ok: 0, state: 'play', busy: false, marks: null, showLesson: false, last: -1, hist: [] });
+  $('#drillList').hidden = true; $('#drillPlay').hidden = false;
+  $('#dChip').textContent = GOALS[pr.goal] + (pr.moves > 1 ? ` · ${pr.moves} moves` : '');
+  $('#dTitle').textContent = pr.title; $('#dBrief').textContent = pr.brief;
+  $('#dLessonText').textContent = pr.lesson;
+  const goalText = { capture: 'Black to play and capture the marked stones.', escape: 'Black to play and save the marked stones.', kill: 'Black to play and kill the White group.', live: 'Black to play and make the group live.' }[pr.goal];
+  setCoach($('#dCoach'), '', 'Black', goalText);
+  renderDrill(); window.scrollTo({ top: 0 });
+}
+function renderDrill() {
+  const d = drill;
+  d.view.show({ n: d.P.size, stones: d.b.s, board: d.b, region: d.P.region, last: d.b.last, marks: d.marks, libs: d.state === 'play', libsAll: true });
+  $('#dLessonBox').hidden = !d.showLesson;
+  $('#dLesson').setAttribute('aria-pressed', d.showLesson);
+  $('#dHint').disabled = d.state !== 'play' || d.busy;
+  $('#dNext').textContent = drill.i < PROBS.length - 1 ? 'Next' : 'Done';
+}
+function targetGone() { return drill.b.s[drill.P.target] !== (3 - drill.P.attacker); }
+async function drillTap(p) {
+  const d = drill; if (d.busy || d.state !== 'play') return;
+  const P = d.P, b = d.b;
+  if (!P.region[p]) { setCoach($('#dCoach'), 'warn', 'Outside', 'Play inside the lit part of the board.'); return; }
+  if (b.s[p]) return;
+  if (!b.isLegal(p, BLACK)) { setCoach($('#dCoach'), 'warn', 'Illegal', 'That move is not allowed (suicide or ko).'); return; }
+  d.marks = null; d.hist.push(b.clone());
+  b.play(p, BLACK); renderDrill();
+  const userAtt = P.attacker === BLACK;
+  if (userAtt && targetGone()) return solved('Captured. ');
+  d.busy = true; renderDrill();
+  setCoach($('#dCoach'), '', 'Reading', 'Checking every reply White has.');
+  let res;
+  const pr = PROBS[d.i];
+  try { res = await call({ cmd: 'solve', prob: pr, stones: Array.from(b.s), ko: b.ko, toMove: WHITE, opts: { judge: true, reply: true } }); }
+  catch (e) { d.busy = false; setCoach($('#dCoach'), 'bad', 'Error', 'The solver stopped. Tap Retry.'); return; }
+  if (d !== drill || pr !== PROBS[d.i] || b !== d.b) return;
+  const correct = userAtt ? res.attackerWins : !res.attackerWins;
+  if (!correct) {
+    d.state = 'failed';
+    const rep = res.reply.move;
+    setTimeout(() => {
+      if (b !== d.b) return;
+      if (rep >= 0) b.play(rep, WHITE);
+      d.busy = false; d.showLesson = false;
+      setCoach($('#dCoach'), 'bad', 'Not yet', `White answers at ${coord(rep, P.size)} and ${{ capture: 'escapes', kill: 'lives', live: 'kills your group', escape: 'captures your stones' }[pr.goal]}. Tap Retry and look for another move.`);
+      renderDrill();
+    }, 350);
+    return;
+  }
+  d.ok++;
+  if (pr.goal === 'live' && res.benson) return solved('Two real eyes. ');
+  if (pr.goal === 'escape' && b.libCount(P.target, 9) >= P.escapeLibs) return solved('Out in the open. ');
+  if (pr.goal !== 'capture' && d.ok >= P.need) return solved(pr.goal === 'kill' ? 'White can no longer make two eyes. ' : 'White can no longer stop you. ');
+  const rep = res.reply.move;
+  setTimeout(() => {
+    if (b !== d.b) return;
+    b.play(rep, WHITE); d.busy = false;
+    if (!userAtt && targetGone()) { d.state = 'failed'; setCoach($('#dCoach'), 'bad', 'Captured', 'Your stones were captured. Tap Retry.'); renderDrill(); return; }
+    setCoach($('#dCoach'), 'good', 'Correct', rep < 0 ? 'White passes. Keep going.' : `White plays ${coord(rep, P.size)}. Keep going.`);
+    renderDrill();
+  }, 350);
+}
+function solved(prefix) {
+  const d = drill; d.state = 'solved'; d.busy = false; d.showLesson = true;
+  d.done.add(PROBS[d.i].id); store.set('done', [...d.done]);
+  setCoach($('#dCoach'), 'good', 'Solved', prefix + 'Read the idea below, then try the next drill.');
+  renderDrill();
+}
+$('#dRetry').onclick = () => openDrill(drill.i);
+$('#dBack').onclick = () => { $('#drillPlay').hidden = true; $('#drillList').hidden = false; renderDrillList(); };
+$('#dNext').onclick = () => { if (drill.i < PROBS.length - 1) openDrill(drill.i + 1); else $('#dBack').onclick(); };
+$('#dLesson').onclick = () => { drill.showLesson = !drill.showLesson; renderDrill(); };
+$('#dHint').onclick = async () => {
+  const d = drill; if (d.busy || d.state !== 'play') return;
+  d.busy = true; setCoach($('#dCoach'), '', 'Hint', 'Looking for a move that works.');
+  const pr = PROBS[d.i], b = d.b;
+  let res; try { res = await call({ cmd: 'solve', prob: pr, stones: Array.from(b.s), ko: b.ko, toMove: BLACK, opts: { hint: true } }); } catch (e) { d.busy = false; return; }
+  if (b !== d.b) return;
+  d.busy = false;
+  const g = (res.good || []).filter(m => m >= 0);
+  if (g.length) { d.marks = [{ p: g[0], label: '?' }]; setCoach($('#dCoach'), '', 'Hint', g.length > 1 ? `Try the marked point. (${g.length} moves work here.)` : 'Try the marked point, then ask yourself why it works.'); }
+  else setCoach($('#dCoach'), 'warn', 'Hint', 'No move works from here. Tap Retry.');
+  renderDrill();
+};
+drill.view.onTap = drillTap;
+
+/* ================= CAPTURE GO ================= */
+const atari = { view: new BoardView($('#aBoard')), size: store.get('asize', 9), start: store.get('astart', 'cross'), level: store.get('alevel', 0), libs: true,
+  b: null, toMove: BLACK, over: false, thinking: false, token: 0, hist: [], marks: null, score: store.get('ascore', { w: 0, l: 0 }) };
+function atariNew() {
+  atari.token++; if (atari.thinking) makeWorker();
+  const n = atari.size, b = new E.Board(n); atari.b = b;
+  if (atari.start === 'cross') { const m = (n - 1) / 2; b.set(m * n + m, WHITE); b.set(m * n + m + 1, BLACK); b.set((m + 1) * n + m, BLACK); b.set((m + 1) * n + m + 1, WHITE); }
+  Object.assign(atari, { toMove: BLACK, over: false, thinking: false, hist: [], marks: null });
+  setCoach($('#aCoach'), '', 'Coach', atari.start === 'cross' ? 'The crosscut: both sides are already cut. Count liberties before every move.' : 'You are Black. Make your stones hard to surround while you hunt for an atari that works.');
+  renderAtari();
+}
+function renderAtari() {
+  const b = atari.b, n = atari.size;
+  atari.view.show({ n, stones: b.s, board: b, last: b.last, libs: atari.libs && !atari.over, libsAll: true, marks: atari.marks });
+  $('#aWho').innerHTML = atari.over ? '<span>Game over</span>' : atari.thinking ? '<span class="dot w"></span><span>Computer is thinking</span><span class="spin" aria-hidden="true"></span>' : '<span class="dot b"></span><span>Your move</span>';
+  $('#aScore').textContent = `You ${atari.score.w} · Computer ${atari.score.l}`;
+  $('#aLibs').setAttribute('aria-pressed', atari.libs);
+  $('#aUndo').disabled = !atari.hist.length || atari.thinking; $('#aHint').disabled = atari.over || atari.thinking;
+}
+function atariEnd(userWon) {
+  atari.over = true; atari.score[userWon ? 'w' : 'l']++; store.set('ascore', atari.score);
+  setCoach($('#aCoach'), userWon ? 'good' : 'bad', userWon ? 'You win' : 'Captured', userWon ? 'First capture. Tap New game for another round, or try a stronger computer.' : 'The computer captured first. Undo to see where your stones got short of liberties.');
+  renderAtari();
+}
+async function atariTap(p) {
+  if (atari.over || atari.thinking) return;
+  const b = atari.b;
+  if (b.s[p] || !b.isLegal(p, BLACK)) return;
+  atari.hist.push(b.clone()); atari.marks = null;
+  b.play(p, BLACK);
+  if (b.lastCap) return atariEnd(true);
+  atari.thinking = true; renderAtari();
+  const tok = atari.token, lv = LEVELS[atari.level];
+  let r; try { r = await call({ cmd: 'think', state: { size: atari.size, stones: Array.from(b.s), toMove: WHITE, ko: b.ko, last: b.last, last2: b.last2, mode: 'capture' }, opts: { playouts: lv.playouts, ms: lv.ms, randomness: lv.randomness } }); } catch (e) { return; }
+  if (tok !== atari.token) return;
+  atari.thinking = false;
+  if (r.move < 0) { atariEnd(true); return; }
+  b.play(r.move, WHITE);
+  if (b.lastCap) return atariEnd(false);
+  const mine = chainsOf(b, BLACK).filter(c => c.libs.length === 1), theirs = chainsOf(b, WHITE).filter(c => c.libs.length === 1);
+  if (theirs.length) setCoach($('#aCoach'), 'good', 'Chance', 'A White stone is in atari. Capture it to win.');
+  else if (mine.length) setCoach($('#aCoach'), 'bad', 'Atari', `Your stone at ${coord(mine[0].stones[0], atari.size)} is in atari. Extend if it gets you 3+ liberties, or counter-atari.`);
+  else setCoach($('#aCoach'), '', 'Coach', 'Look for White stones with 2 liberties. Atari from the side that drives them toward your stones or the edge.');
+  renderAtari();
+}
+(function () {
+  const seg = (id, val, cb) => { const el = $(id), sync = (v) => el.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v == v)); sync(val); el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; sync(b.dataset.v); cb(b.dataset.v); }); };
+  seg('#aSize', atari.size, (v) => { atari.size = +v; store.set('asize', atari.size); atariNew(); });
+  seg('#aStart', atari.start, (v) => { atari.start = v; store.set('astart', v); atariNew(); });
+  $('#aLevel').value = atari.level; $('#aLevel').onchange = (e) => { atari.level = +e.target.value; store.set('alevel', atari.level); };
+})();
+$('#aNew').onclick = atariNew;
+$('#aLibs').onclick = () => { atari.libs = !atari.libs; renderAtari(); };
+$('#aUndo').onclick = () => { if (!atari.hist.length || atari.thinking) return; atari.b = atari.hist.pop(); if (atari.over) { atari.over = false; } atari.marks = null; setCoach($('#aCoach'), '', 'Undo', 'Took back your move.'); renderAtari(); };
+$('#aHint').onclick = async () => {
+  if (atari.over || atari.thinking) return;
+  const b = atari.b, tok = atari.token; atari.thinking = true; renderAtari();
+  let r; try { r = await call({ cmd: 'think', state: { size: atari.size, stones: Array.from(b.s), toMove: BLACK, ko: b.ko, last: b.last, last2: b.last2, mode: 'capture' }, opts: { playouts: 2500, ms: 3000 } }); } catch (e) { return; }
+  if (tok !== atari.token) return;
+  atari.thinking = false; atari.marks = r.top.filter(t => t.move >= 0).slice(0, 2).map((t, i) => ({ p: t.move, label: String(i + 1) }));
+  setCoach($('#aCoach'), '', 'Hint', 'Marked: the strongest candidates. Count liberties on both sides after each one.');
+  renderAtari();
+};
+atari.view.onTap = atariTap;
+
+/* ================= LEARN ================= */
+const LESSONS = [
+  { h: 'Stop building eyes early', proverb: 'A group needs two eyes only when it is surrounded.',
+    p: ['Getting stomped while you chase two eyes is the most common beginner pattern. Eye-making moves are almost always gote: they answer no threat, so the computer gets a free move each time. Three free moves add up to a corner.',
+      'A group is safe enough if it has any one of these: room to make eyes later, a connection to a strong group, or an open path to the center. Strong players leave groups with zero eyes for 50 moves.'],
+    list: ['Before defending, ask: can White actually surround this group in one or two moves? If not, play elsewhere.', 'Defend when the opponent\'s next move would really kill, not when it would merely annoy.', 'Use Inspect group in Play. If it says safe, leave it.'] },
+  { h: 'Tempo: sente and gote', proverb: 'Play the move that makes them answer.',
+    p: ['A sente move threatens something, so the opponent has to respond and you move again. A gote move ends your turn with no threat. The game flows to whoever holds sente.'],
+    list: ['Prefer moves that do two things: build your area and threaten a weak group.', 'If you must play gote, make it the biggest gote on the board.', 'When the opponent plays a small threat, ask if ignoring it (tenuki) costs less than what you gain elsewhere.'] },
+  { h: 'Blocking', fig: 'hane', proverb: 'Hane at the head of two stones.',
+    p: ['A block stops the opponent from growing in a direction. Block on the side that keeps them small and makes you big, usually the side facing your existing stones or the wider open area.', 'In the diagram, Black bends around the end of White\'s two stones at A. White is now stuck facing Black\'s wall and has to crawl.'],
+    list: ['Before a hane, check the cut behind it. If White can cut and win the fight, block with a solid diagonal (kosumi) or a straight extension instead.', 'Push and block from the side where you are stronger. Blocking from your weak side gives the opponent a target.', 'Do not block everything. Let them have small things while you take big ones.'] },
+  { h: 'Trapping', proverb: 'Chase toward your strength.',
+    p: ['You rarely capture a group by surrounding it stone by stone. Captures come from shapes: ladders, nets, snapbacks, the edge, and running the opponent into your wall.'],
+    list: ['Ladder: atari so the stone keeps exactly two liberties as it runs. Check the diagonal for breakers first.', 'Net (geta): play one step diagonally ahead to cover both escape routes.', 'Throw-in and snapback: sacrifice a stone inside to destroy an eye or force a capture that leaves them in atari.', 'Attack from a distance. A move two or three points away blocks the escape; contact moves give the victim liberties and shape.', 'Splitting attack: chase one group so it pushes into another weak group, and gain on both.', 'Count liberties before any capturing race. The side with more outside liberties wins, and the shared liberties count for nobody until the end.'] },
+  { h: 'Fluidity: think in groups, not stones', proverb: 'Your opponent\'s key point is your key point.',
+    p: ['The game feels slippery because a single stone means little. Watch groups and the spaces between them. Each move should change which groups are strong or weak.'],
+    list: ['Light vs heavy: a light stone can be given up without loss. A heavy group has too many stones invested to sacrifice and not enough room to live. Keep your stones light in the opponent\'s area.', 'Sacrifice: give up two cutting stones to build a wall facing a bigger area.', 'Make a fist before striking. Strengthen your weak group first, then attack.', 'Don\'t try to kill everything. Attack to gain territory or strength; the capture is a bonus.', 'Every 10 moves, pause: count weak groups on both sides. Play near the weakest one.'] },
+  { h: 'Board size changes the game', proverb: 'Corners, sides, then the center.',
+    p: ['9×9 is a tactical fight from move one. The center point (tengen) is a fine opening, and every group touches every other.', '13×13 adds a real opening: take the corners with one stone each, then approach or extend along the sides.', '19×19 is about balance. The first 30 moves claim corners and sides, and fights decide who gets the center.'] },
+  { h: 'A practice routine', proverb: 'Lose your first fifty games as quickly as possible.',
+    list: ['Ten minutes of drills. Redo the ones you missed until you see the answer instantly.', 'Three Capture Go games on 9×9. They train blocking and chasing with no fear of losing territory.', 'One 9×9 game against the computer with handicap. Turn on Territory to see the swings. Win three in a row, then drop a stone.', 'After each game, undo to the move where the win-chance bar dropped most, and try something else.'] },
+];
+function renderLearn() {
+  const v = $('#v-learn'); v.innerHTML = '<h2>How to play well</h2>';
+  for (const L of LESSONS) {
+    const el = document.createElement('article'); el.className = 'lesson';
+    let html = `<h3>${L.h}</h3><p class="proverb">${L.proverb}</p>`;
+    if (L.fig) html += `<div class="fig"><canvas></canvas><div class="view" style="gap:8px">${(L.p || []).map(t => `<p>${t}</p>`).join('')}</div></div>`;
+    else html += (L.p || []).map(t => `<p>${t}</p>`).join('');
+    if (L.list) html += `<ul>${L.list.map(t => `<li>${t}</li>`).join('')}</ul>`;
+    el.innerHTML = html; v.appendChild(el);
+    if (L.fig === 'hane') {
+      const b = new E.Board(7);
+      for (const [x, y, c] of [[2, 3, BLACK], [2, 4, BLACK], [3, 3, WHITE], [3, 4, WHITE]]) b.set(y * 7 + x, c);
+      requestAnimationFrame(() => new BoardView(el.querySelector('canvas'), { interactive: false, coords: false }).show({ n: 7, stones: b.s, marks: [{ p: 2 * 7 + 3, label: 'A' }] }));
+    }
+  }
+}
+
+/* ================= tabs ================= */
+function showTab(t) {
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t));
+  document.querySelectorAll('[data-view]').forEach(v => v.hidden = v.dataset.view !== t);
+  $('#subtitle').textContent = { play: 'Play', drills: 'Drills', atari: 'Capture Go', learn: 'Learn' }[t];
+  store.set('tab', t);
+  if (t === 'drills' && $('#drillPlay').hidden) renderDrillList();
+  requestAnimationFrame(() => { play.view.draw(); drill.view.draw(); atari.view.draw(); });
+}
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+const mq = window.matchMedia('(prefers-color-scheme: dark)');
+const redraw = () => { play.view.draw(); drill.view.draw(); atari.view.draw(); };
+mq.addEventListener && mq.addEventListener('change', redraw);
+new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+setupControls(); newGame(); atariNew(); renderLearn(); renderDrillList();
+showTab(store.get('tab', 'play'));
+$('#engineNote').textContent = worker ? '' : 'single-thread mode';
+})();
+</script>
