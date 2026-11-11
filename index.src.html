@@ -16,7 +16,7 @@
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
-html, body, button, canvas, select, summary, label { touch-action: manipulation; }
+*, *::before, *::after { touch-action: manipulation; }
 body { background: var(--paper); color: var(--ink); font: 15px/1.45 var(--sans); -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
 button, canvas, nav, .status, summary { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--paper); }
@@ -47,7 +47,7 @@ p { margin: 0; }
 .btn:focus-visible, .seg button:focus-visible, .tab:focus-visible, .card:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .btns .btn { padding-inline: 4px; }
-select { font: 600 14px var(--sans); color: var(--ink); background: var(--card); border: 1.5px solid var(--ink); border-radius: 8px; padding: 7px 8px; min-height: 38px; }
+select { font: 600 16px var(--sans); color: var(--ink); background: var(--card); border: 1.5px solid var(--ink); border-radius: 8px; padding: 7px 8px; min-height: 38px; }
 .settings { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 12px; align-items: center; background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 14px; }
 .settings .label { margin: 0; }
 details.setup summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; font: 20px var(--serif); padding: 2px 0; }
@@ -208,10 +208,25 @@ nav.tabs .inner { max-width: 520px; margin: 0 auto; display: grid; grid-template
 'use strict';
 const SRC = document.getElementById('engine-src').textContent;
 // No zooming on fast taps or pinches: this is a game board, not a document.
-document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
-for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
-let lastTouchEnd = 0;
-document.addEventListener('touchend', (e) => { const now = Date.now(); if (now - lastTouchEnd < 350 && e.cancelable) { e.preventDefault(); e.target.click && e.target.closest('button, summary') && e.target.closest('button, summary').click(); } lastTouchEnd = now; }, { passive: false });
+// iOS zooms on a double tap no matter what the viewport says, so every short tap is handled here
+// and the browser never sees a tap of its own (pointer events on the board still fire first).
+for (const ev of ['gesturestart', 'gesturechange', 'dblclick']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
+let touchStart = null;
+document.addEventListener('touchstart', (e) => {
+  if (e.touches.length > 1) { if (e.cancelable) e.preventDefault(); touchStart = null; return; }
+  const t = e.touches[0]; touchStart = { x: t.clientX, y: t.clientY };
+}, { passive: false });
+document.addEventListener('touchend', (e) => {
+  const st = touchStart; touchStart = null;
+  if (!st || !e.cancelable || e.touches.length) return;
+  const t = e.changedTouches[0];
+  if (Math.hypot(t.clientX - st.x, t.clientY - st.y) > 10) return; // it was a scroll
+  const el = e.target instanceof Element ? e.target : e.target.parentElement;
+  if (!el || el.closest('select, input, textarea, label')) return; // let form controls behave natively
+  e.preventDefault();
+  const btn = el.closest('button, summary, a');
+  if (btn && !btn.disabled) btn.click();
+}, { passive: false });
 (new Function(SRC))();
 const E = window.GoEngine, PROBS = window.GoProblems;
 const { BLACK, WHITE, EMPTY } = E;
