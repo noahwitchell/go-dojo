@@ -3,6 +3,6 @@
   <g stroke="#1f2427" stroke-opacity=".55" stroke-width="8" stroke-linecap="square">
     <path d="M96 96H416M96 176H416M96 256H416M96 336H416M96 416H416M96 96V416M176 96V416M256 96V416M336 96V416M416 96V416"/>
   </g>
-  <circle cx="176" cy="188" r="74" fill="#0e1214"/><circle cx="176" cy="176" r="74" fill="#262c30"/>
-  <circle cx="336" cy="348" r="74" fill="#cfc5b2"/><circle cx="336" cy="336" r="74" fill="#fffdf8"/>
+  <circle cx="176" cy="176" r="74" fill="#262c30"/>
+  <circle cx="336" cy="336" r="74" fill="#fffdf8"/>
 </svg>
