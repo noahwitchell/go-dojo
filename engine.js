@@ -557,8 +557,13 @@ function makeSolver(prob) {
     attackerWins(b, c) { nodes = 0; return aw(b, c, maxDepth); },
     // all winning moves for side c (attacker wins if c===A, else defender holds)
     goodMoves(b, c) {
-      const out = [];
-      for (const m of gen(b, c)) {
+      const out = [], cands = gen(b, c);
+      if (prob.mode === 'tac' && c === A && b.s[T] === D) { // root only: also try quiet moves near the liberties (nets)
+        const libs = b.chain(T).libs, extra = new Set();
+        for (const l of libs) { for (const q of b.nb[l]) extra.add(q); for (const q of b.dg[l]) extra.add(q); }
+        for (const q of extra) if (b.s[q] === EMPTY && region[q] && !cands.includes(q) && b.isLegal(q, c)) cands.push(q);
+      }
+      for (const m of cands) {
         const bb = b.clone(); if (!bb.play(m, c)) continue;
         nodes = 0; const r = aw(bb, 3 - c, maxDepth - 1);
         if ((c === A) === r) out.push(m);

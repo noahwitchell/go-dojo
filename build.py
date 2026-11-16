@@ -1,9 +1,9 @@
-"""Builds the app from index.src.html + engine.js + problems.js.
+"""Builds the app from index.src.html + engine.js + problems.js + drills.gen.js (tools/gen_drills.js).
 index.html    -> full page for GitHub Pages (installable, works offline)
 artifact.html -> body-only version for the claude.ai artifact (it adds its own <head>)"""
 import pathlib
 d = pathlib.Path(__file__).parent
-src = (d / 'engine.js').read_text() + "\n" + (d / 'problems.js').read_text()
+src = (d / 'engine.js').read_text() + "\n" + (d / 'problems.js').read_text() + "\n" + (d / 'drills.gen.js').read_text()
 assert '</script' not in src
 body = (d / 'index.src.html').read_text().replace('/*ENGINE_SRC*/', src)
 (d / 'artifact.html').write_text(body)
